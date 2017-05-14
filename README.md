@@ -10,7 +10,7 @@ the [FFmpeg library](https://ffmpeg.org/).
  - MP4 video file export
  - decoding additional audio file formats, including MP3
 
-## Instalation
+## Installation
 
 Place `shadron-ffmpeg.dll` and the `shadron-ffmpeg` folder containing FFmpeg DLL files
 in the `extensions` directory next to Shadron's executable, or better yet,
