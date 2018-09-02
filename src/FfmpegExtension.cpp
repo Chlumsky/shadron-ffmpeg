@@ -5,9 +5,7 @@ extern "C" {
     #include <libavformat/avformat.h>
 }
 
-FfmpegExtension::FfmpegExtension() {
-    av_register_all();
-}
+FfmpegExtension::FfmpegExtension() { }
 
 FfmpegExtension::~FfmpegExtension() {
     for (std::map<LogicalObject *, int>::iterator entry = objectRefs.begin(); entry != objectRefs.end(); ++entry)

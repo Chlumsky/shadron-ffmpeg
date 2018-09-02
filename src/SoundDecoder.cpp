@@ -16,7 +16,7 @@ extern "C" {
 static void storeSamples(SwrContext *sc, AVFrame *frame, std::vector<unsigned char> &storage, int &sampleCount) {
     int newSamples = frame->nb_samples;
     if (newSamples > 0) {
-        int prevSize = storage.size();
+        int prevSize = (int) storage.size();
         storage.resize(storage.size()+SAMPLE_SIZE*newSamples);
         unsigned char *target[8] = { &storage[prevSize] };
         swr_convert(sc, target, newSamples, const_cast<const uint8_t **>(frame->data), newSamples);

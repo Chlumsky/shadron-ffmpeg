@@ -376,7 +376,7 @@ int __declspec(dllexport) shadron_export_prepare_step(void *context, void *objec
     if (!obj->prepareExportStep(step, *time, *deltaTime))
         return SHADRON_RESULT_NO_MORE_ITEMS;
     if (step == 0)
-        *outputFilenameLength = obj->getExportFilename().size();
+        *outputFilenameLength = (int) obj->getExportFilename().size();
     return SHADRON_RESULT_OK;
 }
 
@@ -388,7 +388,7 @@ int __declspec(dllexport) shadron_export_output_filename(void *context, void *ob
     if (filename.size() == 0)
         return SHADRON_RESULT_NO_DATA;
     memcpy(buffer, &filename[0], filename.size());
-    *length = filename.size();
+    *length = (int) filename.size();
     return SHADRON_RESULT_OK;
 }
 
