@@ -15,6 +15,14 @@ bool LogicalObject::getSize(int &width, int &height) const {
     return false;
 }
 
+bool LogicalObject::getFramerate(int &num, int &den) const {
+    return false;
+}
+
+bool LogicalObject::getDuration(float &duration) const {
+    return false;
+}
+
 bool LogicalObject::acceptsFiles() const {
     return false;
 }

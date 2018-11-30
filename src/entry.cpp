@@ -19,6 +19,10 @@ struct ParseData {
     std::string settings;
     float framerate;
     float duration;
+    std::string framerateSourceName;
+    std::string durationSourceName;
+    const LogicalObject *framerateSource;
+    const LogicalObject *durationSource;
 };
 
 extern "C" {
@@ -82,6 +86,7 @@ int __declspec(dllexport) shadron_parse_initializer(void *context, int objectTyp
 }
 
 int __declspec(dllexport) shadron_parse_initializer_argument(void *context, void *parseContext, int argNo, int argumentType, const void *argumentData, int *nextArgumentTypes) {
+    FfmpegExtension *ext = reinterpret_cast<FfmpegExtension *>(context);
     ParseData *pd = reinterpret_cast<ParseData *>(parseContext);
     switch (pd->initializer) {
         case INITIALIZER_VIDEO_FILE_ID:
@@ -135,7 +140,7 @@ int __declspec(dllexport) shadron_parse_initializer_argument(void *context, void
                             pd->pixelFormat = Mp4ExportObject::YUV444;
                         else
                             return SHADRON_RESULT_PARSE_ERROR;
-                        *nextArgumentTypes = SHADRON_ARG_STRING|SHADRON_ARG_FLOAT;
+                        *nextArgumentTypes = SHADRON_ARG_STRING|SHADRON_ARG_FLOAT|SHADRON_ARG_KEYWORD;
                         break;
                     } else
                         pd->pixelFormat = Mp4ExportObject::YUV420;
@@ -143,24 +148,39 @@ int __declspec(dllexport) shadron_parse_initializer_argument(void *context, void
                 case 4: // Settings (optional)
                     if (argumentType == SHADRON_ARG_STRING) {
                         pd->settings = reinterpret_cast<const char *>(argumentData);
-                        *nextArgumentTypes = SHADRON_ARG_FLOAT;
+                        *nextArgumentTypes = SHADRON_ARG_FLOAT|SHADRON_ARG_KEYWORD;
                         break;
                     }
                     ++pd->curArg;
                 case 5: // Video framerate
-                    if (argumentType != SHADRON_ARG_FLOAT)
+                    if (argumentType == SHADRON_ARG_FLOAT) {
+                        pd->framerate = *reinterpret_cast<const float *>(argumentData);
+                        if (pd->framerate <= 0.f)
+                            return SHADRON_RESULT_PARSE_ERROR;
+                        *nextArgumentTypes = SHADRON_ARG_FLOAT|SHADRON_ARG_KEYWORD;
+                    } else if (argumentType == SHADRON_ARG_KEYWORD) {
+                        pd->framerateSourceName = reinterpret_cast<const char *>(argumentData);
+                        pd->framerateSource = ext->findObject(pd->framerateSourceName);
+                        if (!pd->framerateSource)
+                            return SHADRON_RESULT_PARSE_ERROR;
+                        pd->durationSource = pd->framerateSource;
+                        *nextArgumentTypes = SHADRON_ARG_NONE|SHADRON_ARG_FLOAT|SHADRON_ARG_KEYWORD;
+                    } else
                         return SHADRON_RESULT_UNEXPECTED_ERROR;
-                    pd->framerate = *reinterpret_cast<const float *>(argumentData);
-                    if (pd->framerate <= 0.f)
-                        return SHADRON_RESULT_PARSE_ERROR;
-                    *nextArgumentTypes = SHADRON_ARG_FLOAT;
                     break;
                 case 6: // Video duration
-                    if (argumentType != SHADRON_ARG_FLOAT)
+                    pd->durationSource = NULL;
+                    if (argumentType == SHADRON_ARG_FLOAT) {
+                        pd->duration = *reinterpret_cast<const float *>(argumentData);
+                        if (pd->duration <= 0.f)
+                            return SHADRON_RESULT_PARSE_ERROR;
+                    } else if (argumentType == SHADRON_ARG_KEYWORD) {
+                        pd->durationSourceName = reinterpret_cast<const char *>(argumentData);
+                        pd->durationSource = ext->findObject(pd->durationSourceName);
+                        if (!pd->durationSource)
+                            return SHADRON_RESULT_PARSE_ERROR;
+                    } else
                         return SHADRON_RESULT_UNEXPECTED_ERROR;
-                    pd->duration = *reinterpret_cast<const float *>(argumentData);
-                    if (pd->duration <= 0.f)
-                        return SHADRON_RESULT_PARSE_ERROR;
                     *nextArgumentTypes = SHADRON_ARG_NONE;
                     break;
                 default:
@@ -199,7 +219,7 @@ int __declspec(dllexport) shadron_parse_initializer_finish(void *context, void *
                     obj = new VideoFileObject(name, pd->filename);
                     break;
                 case INITIALIZER_MP4_EXPORT_ID:
-                    obj = new Mp4ExportObject(pd->sourceId, pd->filename, pd->codec, pd->pixelFormat, pd->settings, pd->framerate, pd->duration);
+                    obj = new Mp4ExportObject(pd->sourceId, pd->filename, pd->codec, pd->pixelFormat, pd->settings, pd->framerate, pd->duration, pd->framerateSource, pd->durationSource);
                     break;
                 default:
                     newResult = SHADRON_RESULT_UNEXPECTED_ERROR;
@@ -227,10 +247,18 @@ int __declspec(dllexport) shadron_parse_error_length(void *context, void *parseC
                     *length = sizeof(ERROR_COLOR_KEYWORD)-1;
                     return SHADRON_RESULT_OK;
                 case 5: // Video framerate
-                    *length = sizeof(ERROR_FRAMERATE_POSITIVE)-1;
+                    if (!pd->framerateSourceName.empty()) {
+                        pd->framerateSourceName += ERROR_DEPENDENCY_NOT_FOUND;
+                        *length = (int) pd->framerateSourceName.size();
+                    } else
+                        *length = sizeof(ERROR_FRAMERATE_POSITIVE)-1;
                     return SHADRON_RESULT_OK;
                 case 6: // Video duration
-                    *length = sizeof(ERROR_DURATION_NONNEGATIVE)-1;
+                    if (!pd->durationSourceName.empty()) {
+                        pd->durationSourceName += ERROR_DEPENDENCY_NOT_FOUND;
+                        *length = (int) pd->durationSourceName.size();
+                    } else
+                        *length = sizeof(ERROR_DURATION_NONNEGATIVE)-1;
                     return SHADRON_RESULT_OK;
             }
         default:
@@ -258,12 +286,22 @@ int __declspec(dllexport) shadron_parse_error_string(void *context, void *parseC
                     errorStrLen = sizeof(ERROR_COLOR_KEYWORD)-1;
                     break;
                 case 5: // Video framerate
-                    errorString = ERROR_FRAMERATE_POSITIVE;
-                    errorStrLen = sizeof(ERROR_FRAMERATE_POSITIVE)-1;
+                    if (!pd->framerateSourceName.empty()) {
+                        errorString = pd->framerateSourceName.c_str();
+                        errorStrLen = (int) pd->framerateSourceName.size();
+                    } else {
+                        errorString = ERROR_FRAMERATE_POSITIVE;
+                        errorStrLen = sizeof(ERROR_FRAMERATE_POSITIVE)-1;
+                    }
                     break;
                 case 6: // Video duration
-                    errorString = ERROR_DURATION_NONNEGATIVE;
-                    errorStrLen = sizeof(ERROR_DURATION_NONNEGATIVE)-1;
+                    if (!pd->durationSourceName.empty()) {
+                        errorString = pd->durationSourceName.c_str();
+                        errorStrLen = (int) pd->durationSourceName.size();
+                    } else {
+                        errorString = ERROR_DURATION_NONNEGATIVE;
+                        errorStrLen = sizeof(ERROR_DURATION_NONNEGATIVE)-1;
+                    }
                     break;
             }
         default:;

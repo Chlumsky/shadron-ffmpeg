@@ -44,3 +44,7 @@ and `crf=16` sets the video quality (lower CRF = higher quality).
 Refer to the [FFmpeg documentation](https://trac.ffmpeg.org/wiki/Encode/H.264)
 for a list of possible values. The framerate (frames per second) and duration (seconds)
 are the same as in `png_sequence` and other export types.
+Framerate and duration may also be specified as the name of a previously declared `video_file`
+animation and the properties of the loaded video file will be used.
+Please note that for `yuv420`, both the width and height of the exported animation must be even,
+otherwise the export will fail.

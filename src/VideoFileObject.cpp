@@ -64,6 +64,23 @@ bool VideoFileObject::getSize(int &width, int &height) const {
     return true;
 }
 
+bool VideoFileObject::getFramerate(int &num, int &den) const {
+    if (fileOpen) {
+        num = data->fc->streams[data->streamId]->r_frame_rate.num;
+        den = data->fc->streams[data->streamId]->r_frame_rate.den;
+        return true;
+    }
+    return false;
+}
+
+bool VideoFileObject::getDuration(float &duration) const {
+    if (fileOpen) {
+        duration = (float) data->fc->duration/AV_TIME_BASE;
+        return true;
+    }
+    return false;
+}
+
 bool VideoFileObject::acceptsFiles() const {
     return true;
 }

@@ -17,7 +17,7 @@
 #include "LogicalObject.h"
 
 #define EXTENSION_NAME "ffmpeg"
-#define EXTENSION_VERSION 100
+#define EXTENSION_VERSION 120
 
 #define INITIALIZER_VIDEO_FILE_ID 0
 #define INITIALIZER_VIDEO_FILE_NAME "video_file"
@@ -30,6 +30,7 @@
 #define ERROR_COLOR_KEYWORD "Color format (yuv420 or yuv444), encoder settings or video framerate expected"
 #define ERROR_FRAMERATE_POSITIVE "The video frame rate must be a positive floating point value"
 #define ERROR_DURATION_NONNEGATIVE "The video duration must be a positive time in seconds"
+#define ERROR_DEPENDENCY_NOT_FOUND " does not name a video_file object. If it is a value, please add + at the beginning"
 
 class FfmpegExtension {
 

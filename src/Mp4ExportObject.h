@@ -19,7 +19,7 @@ public:
         YUV444,
     };
 
-    Mp4ExportObject(int sourceId, const std::string &filename, Codec codec, PixelFormat pixelFormat, const std::string &settings, float framerate, float duration);
+    Mp4ExportObject(int sourceId, const std::string &filename, Codec codec, PixelFormat pixelFormat, const std::string &settings, float framerate, float duration, const LogicalObject *framerateSource, const LogicalObject *durationSource);
     Mp4ExportObject(const Mp4ExportObject &) = delete;
     virtual ~Mp4ExportObject();
     Mp4ExportObject & operator=(const Mp4ExportObject &) = delete;
@@ -41,6 +41,8 @@ private:
     std::string settings;
     float framerate;
     float duration;
+    const LogicalObject *framerateSource;
+    const LogicalObject *durationSource;
     int frameCount;
     float frameDuration;
     int step;

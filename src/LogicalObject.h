@@ -11,6 +11,8 @@ public:
     const std::string & getName() const;
     virtual bool prepare(int &width, int &height, bool hardReset, bool repeat);
     virtual bool getSize(int &width, int &height) const;
+    virtual bool getFramerate(int &num, int &den) const;
+    virtual bool getDuration(float &duration) const;
     virtual bool acceptsFiles() const;
     virtual bool loadFile(const char *filename);
     virtual void unloadFile();

@@ -22,12 +22,18 @@ struct Mp4ExportData {
     SwsContext *sc;
 };
 
-Mp4ExportObject::Mp4ExportObject(int sourceId, const std::string &filename, Codec codec, PixelFormat pixelFormat, const std::string &settings, float framerate, float duration) : LogicalObject(std::string()), data(new Mp4ExportData), sourceId(sourceId), filename(filename), codec(codec), pixelFormat(pixelFormat), settings(settings), framerate(framerate), duration(duration) {
-    frameCount = (int) ceilf(framerate*duration);
-    frameDuration = 1.f/framerate;
+Mp4ExportObject::Mp4ExportObject(int sourceId, const std::string &filename, Codec codec, PixelFormat pixelFormat, const std::string &settings, float framerate, float duration, const LogicalObject *framerateSource, const LogicalObject *durationSource) : LogicalObject(std::string()), data(new Mp4ExportData), sourceId(sourceId), filename(filename), codec(codec), pixelFormat(pixelFormat), settings(settings), framerate(framerate), duration(duration), framerateSource(framerateSource), durationSource(durationSource) {
     step = -1;
     width = 0, height = 0;
-    fractionApprox(data->timeBase.den, data->timeBase.num, framerate, 1024);
+    frameCount = (int) ceilf(framerate*duration);
+    if (framerate != 0.f) {
+        frameDuration = 1.f/framerate;
+        fractionApprox(data->timeBase.den, data->timeBase.num, framerate, 1024);
+    } else {
+        frameDuration = 0.f;
+        data->timeBase.num = 0;
+        data->timeBase.den = 1;
+    }
     switch (codec) {
         case H264:
             data->codecId = AV_CODEC_ID_H264;
@@ -90,6 +96,17 @@ void Mp4ExportObject::setSourcePixels(int sourceId, const void *pixels, int widt
 
 bool Mp4ExportObject::startExport() {
     if (data->frame && !data->fc) {
+        if (framerateSource) {
+            if (!framerateSource->getFramerate(data->timeBase.den, data->timeBase.num))
+                return false;
+            framerate = (float) data->timeBase.den/data->timeBase.num;
+            frameDuration = (float) data->timeBase.num/data->timeBase.den;
+        }
+        if (durationSource) {
+            if (!durationSource->getDuration(duration))
+                return false;
+        }
+        frameCount = (int) ceilf(framerate*duration);
         if (avformat_alloc_output_context2(&data->fc, NULL, "mp4", NULL) >= 0) {
             data->stream = avformat_new_stream(data->fc, NULL);
             if (data->stream) {
@@ -140,6 +157,8 @@ bool Mp4ExportObject::exportStep() {
     if (!(data->frame && data->fc && data->stream && step >= 0 && step < frameCount))
         return false;
     if (step == 0) {
+        if (pixelFormat == YUV420 && (width&1 || height&1))
+            return false;
         if (avio_open2(&data->fc->pb, filename.c_str(), AVIO_FLAG_WRITE, NULL, NULL) < 0)
             return false;
         data->ioc = data->fc->pb;
