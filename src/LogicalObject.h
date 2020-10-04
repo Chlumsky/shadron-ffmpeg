@@ -7,6 +7,13 @@
 class LogicalObject {
 
 public:
+    enum class ExpressionType {
+        UNKNOWN,
+        INT,
+        FLOAT,
+        BOOL
+    };
+
     virtual ~LogicalObject() { }
     const std::string & getName() const;
     virtual bool prepare(int &width, int &height, bool hardReset, bool repeat);
@@ -17,6 +24,7 @@ public:
     virtual bool loadFile(const char *filename);
     virtual void unloadFile();
     virtual bool restart();
+    virtual bool setExpressionValue(int exprId, ExpressionType type, const void *value);
     virtual bool offerSource(int sourceId) const;
     virtual void setSourcePixels(int sourceId, const void *pixels, int width, int height);
     virtual bool pixelsReady() const;

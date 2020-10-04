@@ -22,7 +22,7 @@ struct Mp4ExportObject::Mp4ExportData {
     SwsContext *sc;
 };
 
-Mp4ExportObject::Mp4ExportObject(int sourceId, const std::string &filename, Codec codec, PixelFormat pixelFormat, const std::string &settings, float framerate, float duration, const LogicalObject *framerateSource, const LogicalObject *durationSource) : LogicalObject(std::string()), data(new Mp4ExportData), sourceId(sourceId), filename(filename), codec(codec), pixelFormat(pixelFormat), settings(settings), framerate(framerate), duration(duration), framerateSource(framerateSource), durationSource(durationSource) {
+Mp4ExportObject::Mp4ExportObject(int sourceId, const std::string &filename, Codec codec, PixelFormat pixelFormat, const std::string &settings, int framerateExpr, int durationExpr, float framerate, float duration, const LogicalObject *framerateSource, const LogicalObject *durationSource) : LogicalObject(std::string()), data(new Mp4ExportData), sourceId(sourceId), filename(filename), codec(codec), pixelFormat(pixelFormat), settings(settings), framerateExpr(framerateExpr), durationExpr(durationExpr), framerate(framerate), duration(duration), framerateSource(framerateSource), durationSource(durationSource) {
     step = -1;
     width = 0, height = 0;
     frameCount = (int) ceilf(framerate*duration);
@@ -69,8 +69,35 @@ Mp4ExportObject::~Mp4ExportObject() {
     delete data;
 }
 
-Mp4ExportObject * Mp4ExportObject::reconfigure(int sourceId, const std::string &filename, Codec codec, PixelFormat pixelFormat, const std::string &settings, float framerate, float duration, const LogicalObject *framerateSource, const LogicalObject *durationSource) {
+Mp4ExportObject * Mp4ExportObject::reconfigure(int sourceId, const std::string &filename, Codec codec, PixelFormat pixelFormat, const std::string &settings, int framerateExpr, int durationExpr, float framerate, float duration, const LogicalObject *framerateSource, const LogicalObject *durationSource) {
     return NULL;
+}
+
+bool Mp4ExportObject::setExpressionValue(int exprId, ExpressionType type, const void *value) {
+    bool result = false;
+    if (exprId == framerateExpr && type == ExpressionType::FLOAT) {
+        framerate = *reinterpret_cast<const float *>(value);
+        if (framerate < 0.f)
+            framerate = 0.f;
+        frameCount = (int) ceilf(framerate*duration);
+        if (framerate != 0.f) {
+            frameDuration = 1.f/framerate;
+            fractionApprox(data->timeBase.den, data->timeBase.num, framerate, 1024);
+        } else {
+            frameDuration = 0.f;
+            data->timeBase.num = 0;
+            data->timeBase.den = 1;
+        }
+        result = true;
+    }
+    if (exprId == durationExpr && type == ExpressionType::FLOAT) {
+        duration = *reinterpret_cast<const float *>(value);
+        if (duration < 0.f)
+            duration = 0.f;
+        frameCount = (int) ceilf(framerate*duration);
+        result = true;
+    }
+    return result;
 }
 
 bool Mp4ExportObject::offerSource(int sourceId) const {

@@ -37,6 +37,10 @@ bool LogicalObject::restart() {
     return false;
 }
 
+bool LogicalObject::setExpressionValue(int exprId, ExpressionType type, const void *value) {
+    return false;
+}
+
 bool LogicalObject::offerSource(int sourceId) const {
     return false;
 }

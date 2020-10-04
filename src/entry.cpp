@@ -9,6 +9,8 @@
 #include "Mp4ExportObject.h"
 #include "SoundDecoder.h"
 
+int SHADRON_VERSION;
+
 struct ParseData {
     int initializer;
     int curArg;
@@ -17,6 +19,8 @@ struct ParseData {
     Mp4ExportObject::Codec codec;
     Mp4ExportObject::PixelFormat pixelFormat;
     std::string settings;
+    int framerateExpr;
+    int durationExpr;
     float framerate;
     float duration;
     std::string framerateSourceName;
@@ -28,6 +32,7 @@ struct ParseData {
 extern "C" {
 
 int __declspec(dllexport) shadron_register_extension(int *magicNumber, int *flags, char *name, int *nameLength, int *version, void **context) {
+    SHADRON_VERSION = *version;
     *magicNumber = SHADRON_MAGICNO;
     *flags = SHADRON_FLAG_ANIMATION|SHADRON_FLAG_EXPORT|SHADRON_FLAG_SOUND_DECODER|SHADRON_FLAG_CHARSET_UTF8;
     if (*nameLength <= sizeof(EXTENSION_NAME))
@@ -129,7 +134,9 @@ int __declspec(dllexport) shadron_parse_initializer_argument(void *context, void
                         else
                             return SHADRON_RESULT_PARSE_ERROR;
                     }
-                    *nextArgumentTypes = SHADRON_ARG_KEYWORD|SHADRON_ARG_STRING|SHADRON_ARG_FLOAT;
+                    pd->framerateExpr = -1;
+                    pd->durationExpr = -1;
+                    *nextArgumentTypes = SHADRON_ARG_KEYWORD|SHADRON_ARG_STRING|SHADRON_ARG_FLOAT|(SHADRON_VERSION >= 141 ? SHADRON_ARG_EXPR_FLOAT : 0);
                     break;
                 case 3: // Video pixel format (optional)
                     if (argumentType == SHADRON_ARG_KEYWORD) {
@@ -140,7 +147,7 @@ int __declspec(dllexport) shadron_parse_initializer_argument(void *context, void
                             pd->pixelFormat = Mp4ExportObject::YUV444;
                         else
                             return SHADRON_RESULT_PARSE_ERROR;
-                        *nextArgumentTypes = SHADRON_ARG_STRING|SHADRON_ARG_FLOAT|SHADRON_ARG_KEYWORD;
+                        *nextArgumentTypes = SHADRON_ARG_STRING|SHADRON_ARG_FLOAT|(SHADRON_VERSION >= 141 ? SHADRON_ARG_EXPR_FLOAT : 0)|SHADRON_ARG_KEYWORD;
                         break;
                     } else
                         pd->pixelFormat = Mp4ExportObject::YUV420;
@@ -148,29 +155,33 @@ int __declspec(dllexport) shadron_parse_initializer_argument(void *context, void
                 case 4: // Settings (optional)
                     if (argumentType == SHADRON_ARG_STRING) {
                         pd->settings = reinterpret_cast<const char *>(argumentData);
-                        *nextArgumentTypes = SHADRON_ARG_FLOAT|SHADRON_ARG_KEYWORD;
+                        *nextArgumentTypes = SHADRON_ARG_FLOAT|(SHADRON_VERSION >= 141 ? SHADRON_ARG_EXPR_FLOAT : 0)|SHADRON_ARG_KEYWORD;
                         break;
                     }
                     ++pd->curArg;
                 case 5: // Video framerate
-                    if (argumentType == SHADRON_ARG_FLOAT) {
+                    *nextArgumentTypes = SHADRON_ARG_FLOAT|(SHADRON_VERSION >= 141 ? SHADRON_ARG_EXPR_FLOAT : 0)|SHADRON_ARG_KEYWORD;
+                    if (argumentType == SHADRON_ARG_EXPR_FLOAT)
+                        pd->framerateExpr = *reinterpret_cast<const int *>(argumentData);
+                    else if (argumentType == SHADRON_ARG_FLOAT) {
                         pd->framerate = *reinterpret_cast<const float *>(argumentData);
                         if (pd->framerate <= 0.f)
                             return SHADRON_RESULT_PARSE_ERROR;
-                        *nextArgumentTypes = SHADRON_ARG_FLOAT|SHADRON_ARG_KEYWORD;
                     } else if (argumentType == SHADRON_ARG_KEYWORD) {
                         pd->framerateSourceName = reinterpret_cast<const char *>(argumentData);
                         pd->framerateSource = ext->findObject(pd->framerateSourceName);
                         if (!pd->framerateSource)
                             return SHADRON_RESULT_PARSE_ERROR;
                         pd->durationSource = pd->framerateSource;
-                        *nextArgumentTypes = SHADRON_ARG_NONE|SHADRON_ARG_FLOAT|SHADRON_ARG_KEYWORD;
+                        *nextArgumentTypes |= SHADRON_ARG_NONE;
                     } else
                         return SHADRON_RESULT_UNEXPECTED_ERROR;
                     break;
                 case 6: // Video duration
                     pd->durationSource = NULL;
-                    if (argumentType == SHADRON_ARG_FLOAT) {
+                    if (argumentType == SHADRON_ARG_EXPR_FLOAT)
+                        pd->durationExpr = *reinterpret_cast<const int *>(argumentData);
+                    else if (argumentType == SHADRON_ARG_FLOAT) {
                         pd->duration = *reinterpret_cast<const float *>(argumentData);
                         if (pd->duration <= 0.f)
                             return SHADRON_RESULT_PARSE_ERROR;
@@ -207,7 +218,7 @@ int __declspec(dllexport) shadron_parse_initializer_finish(void *context, void *
                     obj = dynamic_cast<VideoFileObject *>(obj)->reconfigure(pd->filename);
                     break;
                 case INITIALIZER_MP4_EXPORT_ID:
-                    obj = dynamic_cast<Mp4ExportObject *>(obj)->reconfigure(pd->sourceId, pd->filename, pd->codec, pd->pixelFormat, pd->settings, pd->framerate, pd->duration, pd->framerateSource, pd->durationSource);
+                    obj = dynamic_cast<Mp4ExportObject *>(obj)->reconfigure(pd->sourceId, pd->filename, pd->codec, pd->pixelFormat, pd->settings, pd->framerateExpr, pd->durationExpr, pd->framerate, pd->duration, pd->framerateSource, pd->durationSource);
                     break;
                 default:
                     obj = NULL;
@@ -219,7 +230,7 @@ int __declspec(dllexport) shadron_parse_initializer_finish(void *context, void *
                     obj = new VideoFileObject(name, pd->filename);
                     break;
                 case INITIALIZER_MP4_EXPORT_ID:
-                    obj = new Mp4ExportObject(pd->sourceId, pd->filename, pd->codec, pd->pixelFormat, pd->settings, pd->framerate, pd->duration, pd->framerateSource, pd->durationSource);
+                    obj = new Mp4ExportObject(pd->sourceId, pd->filename, pd->codec, pd->pixelFormat, pd->settings, pd->framerateExpr, pd->durationExpr, pd->framerate, pd->duration, pd->framerateSource, pd->durationSource);
                     break;
                 default:
                     newResult = SHADRON_RESULT_UNEXPECTED_ERROR;
@@ -349,6 +360,21 @@ int __declspec(dllexport) shadron_object_unload_file(void *context, void *object
 }
 
 int __declspec(dllexport) shadron_object_set_expression_value(void *context, void *object, int exprIndex, int valueType, const void *value) {
+    LogicalObject *obj = reinterpret_cast<LogicalObject *>(object);
+    LogicalObject::ExpressionType type = LogicalObject::ExpressionType::UNKNOWN;
+    switch (valueType) {
+        case SHADRON_ARG_INT:
+            type = LogicalObject::ExpressionType::INT;
+            break;
+        case SHADRON_ARG_FLOAT:
+            type = LogicalObject::ExpressionType::FLOAT;
+            break;
+        case SHADRON_ARG_BOOL:
+            type = LogicalObject::ExpressionType::BOOL;
+            break;
+    }
+    if (obj->setExpressionValue(exprIndex, type, value))
+        return SHADRON_RESULT_OK;
     return SHADRON_RESULT_IGNORE;
 }
 
