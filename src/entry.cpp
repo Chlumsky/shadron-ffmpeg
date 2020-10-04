@@ -204,10 +204,10 @@ int __declspec(dllexport) shadron_parse_initializer_finish(void *context, void *
         if (obj) {
             switch (pd->initializer) {
                 case INITIALIZER_VIDEO_FILE_ID:
-                    obj = dynamic_cast<VideoFileObject *>(obj);
+                    obj = dynamic_cast<VideoFileObject *>(obj)->reconfigure(pd->filename);
                     break;
                 case INITIALIZER_MP4_EXPORT_ID:
-                    obj = dynamic_cast<Mp4ExportObject *>(obj);
+                    obj = dynamic_cast<Mp4ExportObject *>(obj)->reconfigure(pd->sourceId, pd->filename, pd->codec, pd->pixelFormat, pd->settings, pd->framerate, pd->duration, pd->framerateSource, pd->durationSource);
                     break;
                 default:
                     obj = NULL;

@@ -10,7 +10,7 @@ extern "C" {
 }
 #include "fractionApprox.h"
 
-struct Mp4ExportData {
+struct Mp4ExportObject::Mp4ExportData {
     AVRational timeBase;
     AVCodecID codecId;
     AVPixelFormat pixFmt;
@@ -67,6 +67,10 @@ Mp4ExportObject::~Mp4ExportObject() {
     if (data->frame)
         av_frame_free(&data->frame);
     delete data;
+}
+
+Mp4ExportObject * Mp4ExportObject::reconfigure(int sourceId, const std::string &filename, Codec codec, PixelFormat pixelFormat, const std::string &settings, float framerate, float duration, const LogicalObject *framerateSource, const LogicalObject *durationSource) {
+    return NULL;
 }
 
 bool Mp4ExportObject::offerSource(int sourceId) const {

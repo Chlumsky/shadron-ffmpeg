@@ -47,6 +47,12 @@ VideoFileObject::~VideoFileObject() {
     delete data;
 }
 
+VideoFileObject * VideoFileObject::reconfigure(const std::string &filename) {
+    if (this)
+        initialFilename = filename;
+    return this;
+}
+
 bool VideoFileObject::prepare(int &width, int &height, bool hardReset, bool repeat) {
     this->repeat = repeat;
     if (!prepared || hardReset) {
