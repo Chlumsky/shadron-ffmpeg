@@ -48,8 +48,7 @@ VideoFileObject::~VideoFileObject() {
 }
 
 VideoFileObject * VideoFileObject::reconfigure(const std::string &filename) {
-    if (this)
-        initialFilename = filename;
+    initialFilename = filename;
     return this;
 }
 

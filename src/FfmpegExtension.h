@@ -17,7 +17,7 @@
 #include "LogicalObject.h"
 
 #define EXTENSION_NAME "ffmpeg"
-#define EXTENSION_VERSION 130
+#define EXTENSION_VERSION 140
 
 #define INITIALIZER_VIDEO_FILE_ID 0
 #define INITIALIZER_VIDEO_FILE_NAME "video_file"

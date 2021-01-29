@@ -12,10 +12,20 @@ the [FFmpeg library](https://ffmpeg.org/).
 
 ## Installation
 
+### Windows
+
 Place `shadron-ffmpeg.dll` and the `shadron-ffmpeg` folder containing FFmpeg DLL files
 in the `extensions` directory next to Shadron's executable, or better yet,
 in `%APPDATA%\Shadron\extensions`. It will be automatically detected by Shadron on next launch.
 Requires Shadron 1.1.3 or later.
+
+### Mac
+
+On macOS, it is necessary to build the extension from source in order to use it.
+First, install the FFmpeg libraries (`brew install ffmpeg`).
+Download this repository, open the console in its root directory,
+and run `make && make install` to build and install the extension.
+Requires Shadron 1.4.2 or later.
 
 ## Usage
 

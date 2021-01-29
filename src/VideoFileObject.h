@@ -4,6 +4,8 @@
 #include <string>
 #include "LogicalObject.h"
 
+struct VideoFileData;
+
 /// Video file animation object
 class VideoFileObject : public LogicalObject {
     friend struct VideoFileData;
