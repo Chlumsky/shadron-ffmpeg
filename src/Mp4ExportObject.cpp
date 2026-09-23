@@ -5,6 +5,7 @@
 #include <cmath>
 extern "C" {
     #include <libavutil/imgutils.h>
+    #include <libavcodec/avcodec.h>
     #include <libavformat/avformat.h>
     #include <libswscale/swscale.h>
 }
@@ -34,6 +35,7 @@ Mp4ExportObject::Mp4ExportObject(int sourceId, const std::string &filename, Code
         data->timeBase.num = 0;
         data->timeBase.den = 1;
     }
+    data->codecId = AV_CODEC_ID_NONE;
     switch (codec) {
         case H264:
             data->codecId = AV_CODEC_ID_H264;
@@ -41,18 +43,23 @@ Mp4ExportObject::Mp4ExportObject(int sourceId, const std::string &filename, Code
         case HEVC:
             data->codecId = AV_CODEC_ID_HEVC;
             break;
-        default:
-            data->codecId = AV_CODEC_ID_NONE;
+        case AV1:
+            data->codecId = AV_CODEC_ID_AV1;
     }
+    data->pixFmt = AV_PIX_FMT_NONE;
     switch (pixelFormat) {
+        case GRAYSCALE:
+            data->pixFmt = AV_PIX_FMT_GRAY8;
+            break;
         case YUV420:
             data->pixFmt = AV_PIX_FMT_YUV420P;
             break;
         case YUV444:
             data->pixFmt = AV_PIX_FMT_YUV444P;
             break;
-        default:
-            data->pixFmt = AV_PIX_FMT_NONE;
+        case YUVA444:
+            data->pixFmt = AV_PIX_FMT_YUVA444P;
+            break;
     }
     data->frame = av_frame_alloc();
     data->fc = NULL;
@@ -142,6 +149,12 @@ bool Mp4ExportObject::startExport() {
             data->stream = avformat_new_stream(data->fc, NULL);
             if (data->stream) {
                 data->stream->time_base = data->timeBase;
+                if (data->timeBase.num) {
+                    data->stream->r_frame_rate.num = data->timeBase.den;
+                    data->stream->r_frame_rate.den = data->timeBase.num;
+                    data->stream->avg_frame_rate.num = data->timeBase.den;
+                    data->stream->avg_frame_rate.den = data->timeBase.num;
+                }
                 return true;
             }
             avformat_free_context(data->fc);
@@ -157,10 +170,8 @@ void Mp4ExportObject::finishExport() {
         data->sc = NULL;
     }
     data->stream = NULL;
-    if (data->cc) {
-        avcodec_close(data->cc);
+    if (data->cc)
         avcodec_free_context(&data->cc);
-    }
     if (data->ioc)
         avio_closep(&data->ioc);
     if (data->fc) {
@@ -193,7 +204,7 @@ bool Mp4ExportObject::exportStep() {
         if (avio_open2(&data->fc->pb, filename.c_str(), AVIO_FLAG_WRITE, NULL, NULL) < 0)
             return false;
         data->ioc = data->fc->pb;
-        AVCodec *codec = avcodec_find_encoder(data->codecId);
+        const AVCodec *codec = avcodec_find_encoder(data->codecId);
         if (!codec)
             return false;
         data->cc = avcodec_alloc_context3(codec);
@@ -227,31 +238,31 @@ bool Mp4ExportObject::exportStep() {
         data->frame->pts = step;
         if (avcodec_send_frame(data->cc, data->frame) != 0)
             return false;
-        AVPacket pkt = { };
-        av_init_packet(&pkt);
-        while (avcodec_receive_packet(data->cc, &pkt) == 0) {
-            pkt.stream_index = data->stream->index;
-            av_packet_rescale_ts(&pkt, data->timeBase, data->stream->time_base);
-            if (av_interleaved_write_frame(data->fc, &pkt) != 0) {
-                av_packet_unref(&pkt);
+        AVPacket *pkt = av_packet_alloc();
+        while (avcodec_receive_packet(data->cc, pkt) == 0) {
+            pkt->stream_index = data->stream->index;
+            av_packet_rescale_ts(pkt, data->timeBase, data->stream->time_base);
+            if (av_interleaved_write_frame(data->fc, pkt) != 0) {
+                av_packet_free(&pkt);
                 return false;
             }
-            av_packet_unref(&pkt);
+            av_packet_unref(pkt);
         }
         if (step == frameCount-1) {
             if (avcodec_send_frame(data->cc, NULL) != 0)
                 return false;
-            while (avcodec_receive_packet(data->cc, &pkt) == 0) {
-                pkt.stream_index = data->stream->index;
-                av_packet_rescale_ts(&pkt, data->timeBase, data->stream->time_base);
-                if (av_interleaved_write_frame(data->fc, &pkt) != 0) {
-                    av_packet_unref(&pkt);
+            while (avcodec_receive_packet(data->cc, pkt) == 0) {
+                pkt->stream_index = data->stream->index;
+                av_packet_rescale_ts(pkt, data->timeBase, data->stream->time_base);
+                if (av_interleaved_write_frame(data->fc, pkt) != 0) {
+                    av_packet_free(&pkt);
                     return false;
                 }
-                av_packet_unref(&pkt);
+                av_packet_unref(pkt);
             }
             av_write_trailer(data->fc);
         }
+        av_packet_free(&pkt);
     }
     return true;
 }

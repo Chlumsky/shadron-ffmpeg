@@ -6,6 +6,7 @@
 #include <cstring>
 extern "C" {
     #include <libavutil/opt.h>
+    #include <libavcodec/avcodec.h>
     #include <libavformat/avformat.h>
     #include <libswresample/swresample.h>
 }
@@ -75,7 +76,7 @@ SoundDecoder * SoundDecoder::decode(const void *data, int length) {
             fc->pb = ioc;
             if (avformat_open_input(&fc, "", NULL, NULL) >= 0) {
                 if (avformat_find_stream_info(fc, NULL) >= 0) {
-                    AVCodec *decoder = NULL;
+                    const AVCodec *decoder = NULL;
                     int streamId = av_find_best_stream(fc, AVMEDIA_TYPE_AUDIO, -1, -1, &decoder, 0);
                     if (streamId >= 0 && decoder) {
                         AVCodecContext *cc = avcodec_alloc_context3(decoder);
@@ -86,7 +87,7 @@ SoundDecoder * SoundDecoder::decode(const void *data, int length) {
                                 if (avcodec_open2(cc, decoder, &options) >= 0) {
                                     SwrContext *sc = swr_alloc();
                                     if (sc) {
-                                        av_opt_set_int(sc, "in_channel_layout", cc->channel_layout, 0);
+                                        av_opt_set_chlayout(sc, "in_chlayout", &cc->ch_layout, 0);
                                         av_opt_set_int(sc, "in_sample_rate", cc->sample_rate, 0);
                                         av_opt_set_int(sc, "in_sample_fmt", cc->sample_fmt, 0);
                                         av_opt_set_int(sc, "out_channel_layout", AV_CH_LAYOUT_STEREO, 0);
@@ -99,12 +100,10 @@ SoundDecoder * SoundDecoder::decode(const void *data, int length) {
                                                 int sampleRate = cc->sample_rate;
                                                 int sampleCount = 0;
                                                 std::vector<unsigned char> sampleBuffer;
-                                                AVPacket pkt = { };
-                                                av_init_packet(&pkt);
-                                                while (av_read_frame(fc, &pkt) == 0) {
-                                                    if (pkt.stream_index == streamId) {
-                                                        if (avcodec_send_packet(cc, &pkt) < 0) {
-                                                            av_packet_unref(&pkt);
+                                                AVPacket *pkt = av_packet_alloc();
+                                                while (av_read_frame(fc, pkt) == 0) {
+                                                    if (pkt->stream_index == streamId) {
+                                                        if (avcodec_send_packet(cc, pkt) < 0) {
                                                             ok = false;
                                                             break;
                                                         }
@@ -112,8 +111,9 @@ SoundDecoder * SoundDecoder::decode(const void *data, int length) {
                                                             storeSamples(sc, frame, sampleBuffer, sampleCount);
                                                         }
                                                     }
-                                                    av_packet_unref(&pkt);
+                                                    av_packet_unref(pkt);
                                                 }
+                                                av_packet_free(&pkt);
                                                 if (ok) {
                                                     if (avcodec_send_packet(cc, NULL) >= 0) {
                                                         while (!avcodec_receive_frame(cc, frame)) {
@@ -127,7 +127,6 @@ SoundDecoder * SoundDecoder::decode(const void *data, int length) {
                                         }
                                         swr_free(&sc);
                                     }
-                                    avcodec_close(cc);
                                 }
                             }
                             avcodec_free_context(&cc);

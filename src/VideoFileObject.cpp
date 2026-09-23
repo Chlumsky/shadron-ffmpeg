@@ -3,6 +3,7 @@
 
 extern "C" {
     #include <libavutil/imgutils.h>
+    #include <libavcodec/avcodec.h>
     #include <libavformat/avformat.h>
     #include <libswscale/swscale.h>
 }
@@ -100,7 +101,7 @@ bool VideoFileObject::loadFile(const char *filename) {
     if (data->frame) {
         if (avformat_open_input(&fc, filename, NULL, NULL) >= 0) {
             if (avformat_find_stream_info(fc, NULL) >= 0) {
-                AVCodec *decoder = NULL;
+                const AVCodec *decoder = NULL;
                 int streamId = av_find_best_stream(fc, AVMEDIA_TYPE_VIDEO, -1, -1, &decoder, 0);
                 if (streamId >= 0 && decoder) {
                     AVCodecContext *cc = avcodec_alloc_context3(decoder);
@@ -138,7 +139,6 @@ bool VideoFileObject::loadFile(const char *filename) {
                                     }
                                     sws_freeContext(sc);
                                 }
-                                avcodec_close(cc);
                             }
                         }
                         avcodec_free_context(&cc);
@@ -159,10 +159,8 @@ void VideoFileObject::unloadFile() {
         sws_freeContext(data->sc);
         data->sc = NULL;
     }
-    if (data->cc) {
-        avcodec_close(data->cc);
+    if (data->cc)
         avcodec_free_context(&data->cc);
-    }
     if (data->fc)
         avformat_close_input(&data->fc);
 }
@@ -197,21 +195,21 @@ bool VideoFileObject::nextFrame() {
     atStart = false;
     if (!avcodec_receive_frame(data->cc, data->frame))
         return true;
-    AVPacket pkt = { };
-    av_init_packet(&pkt);
-    while (av_read_frame(data->fc, &pkt) == 0) {
-        if (pkt.stream_index == data->streamId) {
-            if (avcodec_send_packet(data->cc, &pkt) < 0) {
-                av_packet_unref(&pkt);
+    AVPacket *pkt = av_packet_alloc();
+    while (av_read_frame(data->fc, pkt) == 0) {
+        if (pkt->stream_index == data->streamId) {
+            if (avcodec_send_packet(data->cc, pkt) < 0) {
+                av_packet_free(&pkt);
                 return false;
             }
             if (!avcodec_receive_frame(data->cc, data->frame)) {
-                av_packet_unref(&pkt);
+                av_packet_free(&pkt);
                 return true;
             }
         }
-        av_packet_unref(&pkt);
+        av_packet_unref(pkt);
     }
+    av_packet_free(&pkt);
     if (avcodec_send_packet(data->cc, NULL) < 0)
         return false;
     if (!avcodec_receive_frame(data->cc, data->frame))
@@ -241,7 +239,7 @@ const void * VideoFileObject::fetchPixels(float time, float deltaTime, bool real
         do {
             if (!nextFrame())
                 return NULL;
-            int64_t frameDuration = data->frame->pkt_duration;
+            int64_t frameDuration = data->frame->duration;
             frameEndTime += frameDuration;
             frameRemainingTime += (double) frameDuration*data->timeBase.num/data->timeBase.den;
         } while (!isFrameCurrent(time, realTime));

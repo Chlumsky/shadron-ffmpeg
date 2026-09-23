@@ -137,6 +137,8 @@ int SHADRON_API_FN shadron_parse_initializer_argument(void *context, void *parse
                             pd->codec = Mp4ExportObject::H264;
                         else if (kw == "hevc" || kw == "HEVC" || kw == "h265" || kw == "H265")
                             pd->codec = Mp4ExportObject::HEVC;
+                        else if (kw == "av1" || kw == "AV1")
+                            pd->codec = Mp4ExportObject::AV1;
                         else
                             return SHADRON_RESULT_PARSE_ERROR;
                     }
@@ -147,10 +149,14 @@ int SHADRON_API_FN shadron_parse_initializer_argument(void *context, void *parse
                 case 3: // Video pixel format (optional)
                     if (argumentType == SHADRON_ARG_KEYWORD) {
                         std::string kw = reinterpret_cast<const char *>(argumentData);
-                        if (kw == "yuv420" || kw == "YUV420")
+                        if (kw == "grayscale" || kw == "gray" || kw == "bw")
+                            pd->pixelFormat = Mp4ExportObject::GRAYSCALE;
+                        else if (kw == "yuv420" || kw == "YUV420")
                             pd->pixelFormat = Mp4ExportObject::YUV420;
                         else if (kw == "yuv444" || kw == "YUV444")
                             pd->pixelFormat = Mp4ExportObject::YUV444;
+                        else if (kw == "yuva444" || kw == "YUVA444")
+                            pd->pixelFormat = Mp4ExportObject::YUVA444;
                         else
                             return SHADRON_RESULT_PARSE_ERROR;
                         *nextArgumentTypes = SHADRON_ARG_STRING|SHADRON_ARG_FLOAT|(SHADRON_VERSION >= 141 ? SHADRON_ARG_EXPR_FLOAT : 0)|SHADRON_ARG_KEYWORD;

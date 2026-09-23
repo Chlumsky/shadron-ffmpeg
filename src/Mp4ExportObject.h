@@ -10,12 +10,15 @@ class Mp4ExportObject : public LogicalObject {
 public:
     enum Codec {
         H264,
-        HEVC
+        HEVC,
+        AV1
     };
 
     enum PixelFormat {
+        GRAYSCALE,
         YUV420,
         YUV444,
+        YUVA444
     };
 
     Mp4ExportObject(int sourceId, const std::string &filename, Codec codec, PixelFormat pixelFormat, const std::string &settings, int framerateExpr, int durationExpr, float framerate, float duration, const LogicalObject *framerateSource, const LogicalObject *durationSource);

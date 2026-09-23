@@ -10,6 +10,10 @@ the [FFmpeg library](https://ffmpeg.org/).
  - MP4 video file export
  - decoding additional audio file formats, including MP3
 
+### Setup
+
+The current version uses [this shared GPL FFmpeg library version 9.0 build](https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n9.0-latest-win64-gpl-shared-9.0.zip) - use the DLL files from this link (avdevice and avfilter are not needed). The DLL's need to be placed in the `shadron-ffmpeg` directory next to `shadron-ffmpeg.dll`.
+
 ## Installation
 
 ### Windows
@@ -45,8 +49,8 @@ To export an animation as a video file, you may declare an MP4 export like this:
 
     export mp4(MyAnimation, "output.mp4", <codec>, <pixel format>, <encoder settings>, <framerate>, <duration>);
 
-Currently, codec may be either `h264` or `hevc`.
-The pixel format parameter is optional, and may be either `yuv420` (default) or `yuv444`.
+Currently, codec may be `h264`, `hevc`, or `av1`.
+The pixel format parameter is optional, and may be `yuv420` (default), `yuv444`, `yuva444` (with alpha channel), or `grayscale`.
 The encoder settings is an optional string parameter that may contain
 a sequence of key-value pairs (`key=value`), separated by commas.
 For example, `preset=slow` lets the encoder take longer to better compress the video,
