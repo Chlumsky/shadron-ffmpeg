@@ -117,10 +117,16 @@ void Mp4ExportObject::setSourcePixels(int sourceId, const void *pixels, int widt
             data->frame->format = data->pixFmt;
             data->frame->width = width;
             data->frame->height = height;
+            data->frame->colorspace = AVCOL_SPC_BT709;
+            data->frame->color_primaries = AVCOL_PRI_BT709;
+            data->frame->color_trc = AVCOL_TRC_BT709;
+            data->frame->color_range = AVCOL_RANGE_MPEG;
             if (av_frame_get_buffer(data->frame, 32) >= 0) {
                 if ((data->sc = sws_getContext(width, height, AV_PIX_FMT_RGBA, width, height, data->pixFmt, 0, NULL, NULL, NULL))) {
                     this->width = width;
                     this->height = height;
+                    const int *bt709Coefficients = sws_getCoefficients(SWS_CS_ITU709);
+                    sws_setColorspaceDetails(data->sc, bt709Coefficients, 1, bt709Coefficients, 0, 0, 0x10000, 0x10000);
                 }
             }
         }
@@ -217,6 +223,10 @@ bool Mp4ExportObject::exportStep() {
         data->cc->pix_fmt = data->pixFmt;
         data->cc->framerate.num = data->timeBase.den;
         data->cc->framerate.den = data->timeBase.num;
+        data->cc->colorspace = AVCOL_SPC_BT709;
+        data->cc->color_primaries = AVCOL_PRI_BT709;
+        data->cc->color_trc = AVCOL_TRC_BT709;
+        data->cc->color_range = AVCOL_RANGE_MPEG;
         if (data->fc->oformat->flags&AVFMT_GLOBALHEADER)
             data->cc->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
         AVDictionary *options = NULL;
