@@ -35,6 +35,8 @@ public:
     virtual std::string getExportFilename() const override;
     virtual bool prepareExportStep(int step, float &time, float &deltaTime) override;
     virtual bool exportStep() override;
+    bool finalStep();
+    int getLastStepIndex() const;
 
 private:
     struct Mp4ExportData;

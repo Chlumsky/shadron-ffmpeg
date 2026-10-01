@@ -202,7 +202,7 @@ bool Mp4ExportObject::prepareExportStep(int step, float &time, float &deltaTime)
 }
 
 bool Mp4ExportObject::exportStep() {
-    if (!(data->frame && data->fc && data->stream && step >= 0 && step < frameCount))
+    if (!(data->frame && data->fc && data->stream && step >= 0 && (step < frameCount || frameCount <= 0)))
         return false;
     if (step == 0) {
         if (pixelFormat == YUV420 && (width&1 || height&1))
@@ -258,21 +258,33 @@ bool Mp4ExportObject::exportStep() {
             }
             av_packet_unref(pkt);
         }
-        if (step == frameCount-1) {
-            if (avcodec_send_frame(data->cc, NULL) != 0)
-                return false;
-            while (avcodec_receive_packet(data->cc, pkt) == 0) {
-                pkt->stream_index = data->stream->index;
-                av_packet_rescale_ts(pkt, data->timeBase, data->stream->time_base);
-                if (av_interleaved_write_frame(data->fc, pkt) != 0) {
-                    av_packet_free(&pkt);
-                    return false;
-                }
-                av_packet_unref(pkt);
-            }
-            av_write_trailer(data->fc);
-        }
         av_packet_free(&pkt);
+        if (step == frameCount-1) {
+            if (!finalStep())
+                return false;
+        }
     }
     return true;
+}
+
+bool Mp4ExportObject::finalStep() {
+    if (avcodec_send_frame(data->cc, NULL) != 0)
+        return false;
+    AVPacket *pkt = av_packet_alloc();
+    while (avcodec_receive_packet(data->cc, pkt) == 0) {
+        pkt->stream_index = data->stream->index;
+        av_packet_rescale_ts(pkt, data->timeBase, data->stream->time_base);
+        if (av_interleaved_write_frame(data->fc, pkt) != 0) {
+            av_packet_free(&pkt);
+            return false;
+        }
+        av_packet_unref(pkt);
+    }
+    av_write_trailer(data->fc);
+    av_packet_free(&pkt);
+    return true;
+}
+
+int Mp4ExportObject::getLastStepIndex() const {
+    return step;
 }

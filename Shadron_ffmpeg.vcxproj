@@ -168,6 +168,7 @@
     <ClInclude Include="src\LogicalObject.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\direct.cpp" />
     <ClCompile Include="src\entry.cpp" />
     <ClCompile Include="src\FfmpegExtension.cpp" />
     <ClCompile Include="src\fractionApprox.cpp" />
